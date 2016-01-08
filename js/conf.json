@@ -1,8 +1,12 @@
 {
+<<<<<<< HEAD
     "api": "http://casting.bcspecials.com/api/v1/",
+=======
+    "api": "http://192.168.0.109/api/v1/",
+>>>>>>> f8bc239df0430a6cee14fcdad27092360e5ad88f
     "eventsUrl": null,
     "debug": true,
-    "debugInfo": false,
+    "debugInfo": true,
     "defaultLanguage": "en",
     "themes": ["taiga"],
     "defaultTheme": "taiga",
