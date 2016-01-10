@@ -24448,10 +24448,11 @@
     };
 
     CastingController.prototype.FBLogin = function() {
-      var binhAuth, binhLocation, binhNavUrls;
+      var binhAuth, binhCastingService, binhLocation, binhNavUrls;
       binhAuth = this.auth;
       binhNavUrls = this.navUrls;
       binhLocation = this.location;
+      binhCastingService = this.castingService;
       return FB.login((function(response) {
         if (response.authResponse) {
           console.log('Welcome!  Fetching your information.... ');
@@ -24460,22 +24461,25 @@
             locale: 'en_US',
             fields: 'name,email'
           }, function(response) {
-            var data, promise;
+            var data;
             console.log('Good to see you, ' + response.name + '.');
             console.log('email is: ' + response.email);
             console.log(response);
             console.log('end of response object');
             data = {
-              "username": "casting_admin@shaw.ca",
+              "username": response.email,
               "password": "vancouvertorontovancouver",
               "type": "normal"
             };
-            promise = binhAuth.login(data, "normal");
-            promise.then(function() {
-              var nextUrl;
-              console.log('success');
-              nextUrl = binhNavUrls.resolve("home");
-              return binhLocation.url(nextUrl);
+            return binhCastingService.createUserIfNotExistForFacebook(response.email, response.name).then(function() {
+              var promise;
+              promise = binhAuth.login(data, "normal");
+              promise.then(function() {
+                var nextUrl;
+                console.log('success binhAuth.login_facebook');
+                nextUrl = binhNavUrls.resolve("home");
+                return binhLocation.url(nextUrl);
+              });
             });
           });
           FB.api('/me/permissions', function(response) {
@@ -27746,6 +27750,22 @@
         return Immutable.fromJS(result.data);
       });
     };
+    service.createUserForFacebook = function(email, username) {
+      var httpOptions, params, url, username_nospace;
+      url = config.get("api") + 'auth/register';
+      httpOptions = {};
+      username_nospace = username.replace(" ", "-");
+      params = {
+        type: "public",
+        username: username_nospace,
+        password: "vancouvertorontovancouver",
+        email: email,
+        full_name: username
+      };
+      return http.post(url, params, httpOptions).then(function(result) {
+        return Immutable.fromJS(result.data);
+      });
+    };
     return function() {
       return {
         "casting": service
@@ -28567,6 +28587,21 @@
 
     CastingService.prototype.getUserByEmail = function(email) {
       return this.rs.casting.getUserByEmail(email);
+    };
+
+    CastingService.prototype.createUserIfNotExistForFacebook = function(email, username) {
+      var binhRs, promise;
+      binhRs = this.rs;
+      promise = this.getUserByEmail(email);
+      promise.then(function(user) {
+        console.log("<<<<<bdlog: createUserIfNotExistForFacebook: User already exist");
+        return console.log(">>>>>");
+      });
+      promise = promise.then(null, function(err) {
+        console.log("bdlog: user not exist .... create now");
+        return binhRs.casting.createUserForFacebook(email, username);
+      });
+      return promise;
     };
 
     return CastingService;
