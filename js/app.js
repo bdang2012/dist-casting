@@ -251,6 +251,7 @@
     $routeProvider.when("/profile/:slug", {
       templateUrl: "profile/profile.html",
       loader: true,
+      disableHeader: false,
       controller: "Profile",
       controllerAs: "vm"
     });
@@ -303,6 +304,17 @@
     });
     $routeProvider.when("/permission-denied", {
       templateUrl: "error/permission-denied.html"
+    });
+    $routeProvider.when("/users/", {
+      templateUrl: "users/listing/users-listing.html",
+      access: {
+        requiresLogin: true
+      },
+      title: "PROJECTS.PAGE_TITLE",
+      description: "PROJECTS.PAGE_DESCRIPTION",
+      loader: true,
+      controller: "UsersListing",
+      controllerAs: "vm"
     });
     $routeProvider.otherwise({
       redirectTo: "/not-found"
@@ -24429,15 +24441,33 @@
 
     CastingController.$inject = ["tgCurrentUserService", "$tgAuth", "tgCastingService", "$tgModel", "$tgLocation", "$tgNavUrls"];
 
-    function CastingController(currentUserService, auth, castingService, model, location, navUrls) {
+    function CastingController(currentUserService, auth, castingService, model, location1, navUrls) {
       this.currentUserService = currentUserService;
       this.auth = auth;
       this.castingService = castingService;
       this.model = model;
-      this.location = location;
+      this.location = location1;
       this.navUrls = navUrls;
+      taiga.defineImmutableProperty(this, "projects", (function(_this) {
+        return function() {
+          return _this.currentUserService.projects.get("all");
+        };
+      })(this));
+      taiga.defineImmutableProperty(this, "inventory", (function(_this) {
+        return function() {
+          return _this.currentUserService.inventory.get("all");
+        };
+      })(this));
       return;
     }
+
+    CastingController.prototype.openActivateAgentLightbox = function(user) {
+      var userChanged;
+      if (confirm('Promote this user to be Agent: ' + user.get("full_name") + "?")) {
+        userChanged = user.set("is_agent", true);
+        return location.reload();
+      }
+    };
 
     onSuccess = function(response) {
       return console.log('on success');
@@ -25989,8 +26019,17 @@
       taiga.defineImmutableProperty(scope.vm, "isAuthenticated", function() {
         return currentUserService.isAuthenticated();
       });
-      return taiga.defineImmutableProperty(scope.vm, "isEnabledHeader", function() {
+      taiga.defineImmutableProperty(scope.vm, "isEnabledHeader", function() {
         return navigationBarService.isEnabledHeader();
+      });
+      taiga.defineImmutableProperty(scope.vm, "isProducer", function() {
+        return currentUserService.isProducer();
+      });
+      taiga.defineImmutableProperty(scope.vm, "isAgent", function() {
+        return currentUserService.isAgent();
+      });
+      return taiga.defineImmutableProperty(scope.vm, "isProducerOrAgent", function() {
+        return currentUserService.isProducerOrAgent();
       });
     };
     directive = {
@@ -28578,12 +28617,18 @@
   CastingService = (function(superClass) {
     extend(CastingService, superClass);
 
-    CastingService.$inject = ["tgResources"];
+    CastingService.$inject = ["tgResources", "$projectUrl", "tgLightboxFactory"];
 
-    function CastingService(rs) {
+    function CastingService(rs, projectUrl, lightboxFactory) {
       this.rs = rs;
+      this.projectUrl = projectUrl;
+      this.lightboxFactory = lightboxFactory;
       bindMethods(this);
     }
+
+    CastingService.prototype.change_is_agent = function(user) {
+      return this.rs.users.change_is_agent(user);
+    };
 
     CastingService.prototype.getUserByEmail = function(email) {
       return this.rs.casting.getUserByEmail(email);
@@ -28800,6 +28845,25 @@
         return p.id;
       }));
       return this.projects;
+    };
+
+    CurrentUserService.prototype.isProducer = function() {
+      console.log("<<<<<bdlog: in current-suer.service.coffee >>>>");
+      if (!this._user) {
+        return false;
+      }
+      return this._user.get("is_producer");
+    };
+
+    CurrentUserService.prototype.isAgent = function() {
+      if (!this._user) {
+        return false;
+      }
+      return this._user.get("is_agent");
+    };
+
+    CurrentUserService.prototype.isProducerOrAgent = function() {
+      return this.isProducer() || this.isAgent();
     };
 
     return CurrentUserService;
