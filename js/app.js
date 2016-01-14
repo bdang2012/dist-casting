@@ -305,15 +305,26 @@
     $routeProvider.when("/permission-denied", {
       templateUrl: "error/permission-denied.html"
     });
-    $routeProvider.when("/users/", {
-      templateUrl: "users/listing/users-listing.html",
+    $routeProvider.when("/casting/inventory", {
+      templateUrl: "casting/listing/users-listing.html",
       access: {
         requiresLogin: true
       },
       title: "PROJECTS.PAGE_TITLE",
       description: "PROJECTS.PAGE_DESCRIPTION",
       loader: true,
-      controller: "UsersListing",
+      controller: "Casting",
+      controllerAs: "vm"
+    });
+    $routeProvider.when("/casting/agents/", {
+      templateUrl: "casting/listing/agents-listing.html",
+      access: {
+        requiresLogin: true
+      },
+      title: "Agents Listing",
+      description: "Agents Listing",
+      loader: true,
+      controller: "Casting",
       controllerAs: "vm"
     });
     $routeProvider.otherwise({
@@ -3058,6 +3069,7 @@
     "invitations": "/invitations",
     "users": "/users",
     "by_username": "/users/by_username",
+    "by_agents": "/users/by_agents",
     "users-password-recovery": "/users/password_recovery",
     "users-change-password-from-recovery": "/users/change_password_from_recovery",
     "users-change-password": "/users/change_password",
@@ -24458,6 +24470,11 @@
           return _this.currentUserService.inventory.get("all");
         };
       })(this));
+      taiga.defineImmutableProperty(this, "agents", (function(_this) {
+        return function() {
+          return _this.currentUserService.agents.get("all");
+        };
+      })(this));
       return;
     }
 
@@ -24465,6 +24482,16 @@
       var userChanged;
       if (confirm('Promote this user to be Agent: ' + user.get("full_name") + "?")) {
         userChanged = user.set("is_agent", true);
+        this.castingService.change_is_agent(userChanged);
+        return location.reload();
+      }
+    };
+
+    CastingController.prototype.openDeactivateAgentLightbox = function(user) {
+      var userChanged;
+      if (confirm('Are you sure you want to deactivate Agent ' + user.get("full_name") + "?")) {
+        userChanged = user.set("is_agent", false);
+        this.castingService.change_is_agent(userChanged);
         return location.reload();
       }
     };
@@ -27805,6 +27832,47 @@
         return Immutable.fromJS(result.data);
       });
     };
+    service.getInventory = function(paginate) {
+      var httpOptions, params, url;
+      if (paginate == null) {
+        paginate = false;
+      }
+      url = urlsService.resolve("users");
+      httpOptions = {};
+      if (!paginate) {
+        httpOptions.headers = {
+          "x-disable-pagination": "1"
+        };
+      }
+      params = {
+        "order_by": "memberships__user_order"
+      };
+      return http.get(url, params, httpOptions).then(function(result) {
+        return Immutable.fromJS(result.data);
+      });
+    };
+    service.getAgents = function(paginate) {
+      var httpOptions, params, url;
+      if (paginate == null) {
+        paginate = false;
+      }
+      url = urlsService.resolve("by_agents");
+      httpOptions = {};
+      if (!paginate) {
+        httpOptions.headers = {
+          "x-disable-pagination": "1"
+        };
+      }
+      params = {};
+      return http.get(url, params, httpOptions).then(function(result) {
+        return Immutable.fromJS(result.data);
+      });
+    };
+    service.change_is_agent = function(user) {
+      var url;
+      url = urlsService.resolve("users") + "/change_is_agent";
+      return http.post(url, user);
+    };
     return function() {
       return {
         "casting": service
@@ -28649,6 +28717,18 @@
       return promise;
     };
 
+    CastingService.prototype.getInventory = function(paginate) {
+      return this.rs.casting.getInventory(paginate);
+    };
+
+    CastingService.prototype.getAgents = function(paginate) {
+      return this.rs.casting.getAgents(paginate);
+    };
+
+    CastingService.prototype.change_is_agent = function(user) {
+      return this.rs.casting.change_is_agent(user);
+    };
+
     return CastingService;
 
   })(taiga.Service);
@@ -28729,16 +28809,19 @@
   groupBy = this.taiga.groupBy;
 
   CurrentUserService = (function() {
-    CurrentUserService.$inject = ["tgProjectsService", "$tgStorage", "tgResources"];
+    CurrentUserService.$inject = ["tgProjectsService", "$tgStorage", "tgResources", "tgCastingService"];
 
-    function CurrentUserService(projectsService, storageService, rs) {
+    function CurrentUserService(projectsService, storageService, rs, castingService) {
       this.projectsService = projectsService;
       this.storageService = storageService;
       this.rs = rs;
+      this.castingService = castingService;
       this._user = null;
       this._projects = Immutable.Map();
       this._projectsById = Immutable.Map();
       this._joyride = null;
+      this._inventory = Immutable.Map();
+      this._agents = Immutable.Map();
       taiga.defineImmutableProperty(this, "projects", (function(_this) {
         return function() {
           return _this._projects;
@@ -28747,6 +28830,16 @@
       taiga.defineImmutableProperty(this, "projectsById", (function(_this) {
         return function() {
           return _this._projectsById;
+        };
+      })(this));
+      taiga.defineImmutableProperty(this, "inventory", (function(_this) {
+        return function() {
+          return _this._inventory;
+        };
+      })(this));
+      taiga.defineImmutableProperty(this, "agents", (function(_this) {
+        return function() {
+          return _this._agents;
         };
       })(this));
     }
@@ -28834,10 +28927,6 @@
       })(this));
     };
 
-    CurrentUserService.prototype._loadUserInfo = function() {
-      return Promise.all([this.loadProjects()]);
-    };
-
     CurrentUserService.prototype.setProjects = function(projects) {
       this._projects = this._projects.set("all", projects);
       this._projects = this._projects.set("recents", projects.slice(0, 10));
@@ -28848,7 +28937,7 @@
     };
 
     CurrentUserService.prototype.isProducer = function() {
-      console.log("<<<<<bdlog: in current-suer.service.coffee >>>>");
+      console.log("<<<<<bdlog: in current-user.service.coffee >>>>");
       if (!this._user) {
         return false;
       }
@@ -28864,6 +28953,33 @@
 
     CurrentUserService.prototype.isProducerOrAgent = function() {
       return this.isProducer() || this.isAgent();
+    };
+
+    CurrentUserService.prototype._loadInventory = function() {
+      return this.castingService.getInventory().then((function(_this) {
+        return function(inventory) {
+          _this._inventory = _this._inventory.set("all", inventory);
+          console.log('bdlog: in loadInventory ');
+          console.log(_this._inventory.toJS());
+          return _this.inventory;
+          return {
+            _loadAgents: function() {}
+          };
+        };
+      })(this));
+    };
+
+    CurrentUserService.prototype._loadAgents = function() {
+      return this.castingService.getAgents().then((function(_this) {
+        return function(agents) {
+          _this._agents = _this._agents.set("all", agents);
+          return _this.agents;
+        };
+      })(this));
+    };
+
+    CurrentUserService.prototype._loadUserInfo = function() {
+      return Promise.all([this.loadProjects(), this._loadInventory(), this._loadAgents()]);
     };
 
     return CurrentUserService;
