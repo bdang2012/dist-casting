@@ -996,6 +996,10 @@
       if (forCasting == null) {
         forCasting = false;
       }
+      console.log("<<<<bdlog: PageMixin fillUsersadnRoles");
+      console.log(users);
+      console.log(">>>>>>>Total is");
+      console.log(users.length);
       activeUsers = _.filter(users, (function(_this) {
         return function(user) {
           return user.is_active;
@@ -1306,7 +1310,7 @@
       this.currentUserService.removeUser();
       this._setTheme();
       this._setLocales();
-      if (FB) {
+      if (typeof FB !== 'undefined' && FB !== null) {
         return FB.getLoginStatus(function(response) {
           if (response.status === 'connected') {
             return FB.logout(function(response) {
