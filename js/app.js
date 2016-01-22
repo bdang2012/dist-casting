@@ -1307,8 +1307,12 @@
       this._setTheme();
       this._setLocales();
       if (FB) {
-        return FB.logout(function(response) {
-          return console.log('bdlog: fb logout');
+        return FB.getLoginStatus(function(response) {
+          if (response.status === 'connected') {
+            return FB.logout(function(response) {
+              return console.log('bdlog: fb logout');
+            });
+          }
         });
       }
     };
@@ -24589,15 +24593,13 @@
                 user.photo = response.id;
                 user.full_name = response.name;
                 return binhCastingService.change_facebookinfo(user).then(function() {
-                  return binhCastingService.getUserByEmail(response.email).then((function(_this) {
-                    return function(data) {
-                      var nextUrl, user_refreshed;
-                      user_refreshed = binhModel.make_model("users", data.toJS());
-                      binhAuth.setUser(user_refreshed);
-                      nextUrl = binhNavUrls.resolve("home");
-                      return binhLocation.url(nextUrl);
-                    };
-                  })(this));
+                  return binhCastingService.getUserByEmail(response.email).then(function(data) {
+                    var nextUrl, user_refreshed;
+                    user_refreshed = binhModel.make_model("users", data.toJS());
+                    binhAuth.setUser(user_refreshed);
+                    nextUrl = binhNavUrls.resolve("home");
+                    return binhLocation.url(nextUrl);
+                  });
                 });
               });
             });
