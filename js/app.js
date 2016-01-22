@@ -991,8 +991,11 @@
   PageMixin = (function() {
     function PageMixin() {}
 
-    PageMixin.prototype.fillUsersAndRoles = function(users, roles) {
+    PageMixin.prototype.fillUsersAndRoles = function(users, roles, forCasting) {
       var activeUsers, computableRoles;
+      if (forCasting == null) {
+        forCasting = false;
+      }
       activeUsers = _.filter(users, (function(_this) {
         return function(user) {
           return user.is_active;
@@ -1007,10 +1010,14 @@
         return e.id;
       });
       this.scope.roles = _.sortBy(roles, "order");
-      computableRoles = _(this.scope.project.members).map("role").uniq().value();
-      return this.scope.computableRoles = _(roles).filter("computable").filter(function(x) {
-        return _.contains(computableRoles, x.id);
-      }).value();
+      if (forCasting) {
+
+      } else {
+        computableRoles = _(this.scope.project.members).map("role").uniq().value();
+        return this.scope.computableRoles = _(roles).filter("computable").filter(function(x) {
+          return _.contains(computableRoles, x.id);
+        }).value();
+      }
     };
 
     PageMixin.prototype.loadUsersAndRoles = function() {
@@ -1299,9 +1306,11 @@
       this.currentUserService.removeUser();
       this._setTheme();
       this._setLocales();
-      return FB.logout(function(response) {
-        return console.log('bdlog: fb logout');
-      });
+      if (FB) {
+        return FB.logout(function(response) {
+          return console.log('bdlog: fb logout');
+        });
+      }
     };
 
     AuthService.prototype.register = function(data, type, existing) {
@@ -4361,7 +4370,7 @@
  */
 
 (function() {
-  var AssignedToDirective, BlockButtonDirective, CreatedByDisplayDirective, DateRangeDirective, DateSelectorDirective, DeleteButtonDirective, EditableDescriptionDirective, EditableSubjectDirective, ListItemAssignedtoDirective, ListItemIssueStatusDirective, ListItemPriorityDirective, ListItemSeverityDirective, ListItemTaskStatusDirective, ListItemTypeDirective, ListItemUsStatusDirective, SprintProgressBarDirective, TgMainTitleDirective, TgProgressBarDirective, WatchersDirective, bindOnce, module, taiga;
+  var AssignedToDirective, BlockButtonDirective, CreatedByDisplayDirective, DateRangeDirective, DateSelectorDirective, DeleteButtonDirective, EditableDescriptionDirective, EditableSubjectDirective, ListItemAssignedtoDirective, ListItemIssueStatusDirective, ListItemPriorityDirective, ListItemSeverityDirective, ListItemTaskStatusDirective, ListItemTypeDirective, ListItemUsStatusDirective, SprintProgressBarDirective, TgCastingMainTitleDirective, TgMainTitleDirective, TgProgressBarDirective, WatchersDirective, bindOnce, module, taiga;
 
   taiga = this.taiga;
 
@@ -5207,6 +5216,27 @@
   };
 
   module.directive("tgMainTitle", ["$translate", TgMainTitleDirective]);
+
+  TgCastingMainTitleDirective = function($translate) {
+    var link;
+    link = function($scope, $el, $attrs) {
+      $attrs.$observe("i18nSectionName", function(i18nSectionName) {
+        return $scope.sectionName = $translate.instant(i18nSectionName);
+      });
+      return $scope.$on("$destroy", function() {
+        return $el.off();
+      });
+    };
+    return {
+      link: link,
+      templateUrl: "common/components/casting-main-title.html",
+      scope: {
+        projectName: "=projectName"
+      }
+    };
+  };
+
+  module.directive("tgCastingMainTitle", ["$translate", TgCastingMainTitleDirective]);
 
 }).call(this);
 
@@ -24446,14 +24476,25 @@
 }).call(this);
 
 (function() {
-  var CastingController;
+  var CastingController, mixOf, taiga,
+    extend = function(child, parent) { for (var key in parent) { if (hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; },
+    hasProp = {}.hasOwnProperty;
 
-  CastingController = (function() {
+  taiga = this.taiga;
+
+  mixOf = this.taiga.mixOf;
+
+  CastingController = (function(superClass) {
     var onError, onSuccess;
 
-    CastingController.$inject = ["tgCurrentUserService", "$tgAuth", "tgCastingService", "$tgModel", "$tgLocation", "$tgNavUrls"];
+    extend(CastingController, superClass);
 
-    function CastingController(currentUserService, auth, castingService, model, location1, navUrls) {
+    CastingController.$inject = ["$scope", "$rootScope", "tgCurrentUserService", "$tgAuth", "tgCastingService", "$tgModel", "$tgLocation", "$tgNavUrls"];
+
+    function CastingController(scope, rootscope, currentUserService, auth, castingService, model, location1, navUrls) {
+      var promise, user;
+      this.scope = scope;
+      this.rootscope = rootscope;
       this.currentUserService = currentUserService;
       this.auth = auth;
       this.castingService = castingService;
@@ -24475,7 +24516,17 @@
           return _this.currentUserService.agents.get("all");
         };
       })(this));
-      return;
+      this.scope.tasksEnabled = true;
+      this.scope.issuesEnabled = true;
+      this.scope.wikiEnabled = true;
+      user = this.auth.getUser();
+      if (user) {
+        this.scope.castingMembers = this.currentUserService.inventory.get("all").toJS();
+        promise = this.loadInitialData();
+        promise.then(function() {
+          return console.log('done initializing CastingController');
+        });
+      }
     }
 
     CastingController.prototype.openActivateAgentLightbox = function(user) {
@@ -24505,11 +24556,12 @@
     };
 
     CastingController.prototype.FBLogin = function() {
-      var binhAuth, binhCastingService, binhLocation, binhNavUrls;
+      var binhAuth, binhCastingService, binhLocation, binhModel, binhNavUrls;
       binhAuth = this.auth;
       binhNavUrls = this.navUrls;
       binhLocation = this.location;
       binhCastingService = this.castingService;
+      binhModel = this.model;
       return FB.login((function(response) {
         if (response.authResponse) {
           console.log('Welcome!  Fetching your information.... ');
@@ -24521,6 +24573,7 @@
             var data;
             console.log('Good to see you, ' + response.name + '.');
             console.log('email is: ' + response.email);
+            console.log('facebookid is: ' + response.id);
             console.log(response);
             console.log('end of response object');
             data = {
@@ -24531,11 +24584,21 @@
             return binhCastingService.createUserIfNotExistForFacebook(response.email, response.name).then(function() {
               var promise;
               promise = binhAuth.login(data, "normal");
-              promise.then(function() {
-                var nextUrl;
-                console.log('success binhAuth.login_facebook');
-                nextUrl = binhNavUrls.resolve("home");
-                return binhLocation.url(nextUrl);
+              promise.then(function(user) {
+                console.log('success binhAuth.login_facebook.  now update facebookinfo');
+                user.photo = response.id;
+                user.full_name = response.name;
+                return binhCastingService.change_facebookinfo(user).then(function() {
+                  return binhCastingService.getUserByEmail(response.email).then((function(_this) {
+                    return function(data) {
+                      var nextUrl, user_refreshed;
+                      user_refreshed = binhModel.make_model("users", data.toJS());
+                      binhAuth.setUser(user_refreshed);
+                      nextUrl = binhNavUrls.resolve("home");
+                      return binhLocation.url(nextUrl);
+                    };
+                  })(this));
+                });
               });
             });
           });
@@ -24551,11 +24614,127 @@
       });
     };
 
+    CastingController.prototype.loadRoles = function() {
+      var promise;
+      promise = this.castingService.getCastingRoles(false);
+      return promise.then((function(_this) {
+        return function(data) {
+          _this.scope.castingRoles = data.toJS();
+          return _this.scope.castingRoles;
+        };
+      })(this));
+    };
+
+    CastingController.prototype.loadMembers = function() {
+      var i, len, member, ref, user;
+      console.log('xxxxxloading members');
+      user = this.auth.getUser();
+      this.scope.totals = {};
+      ref = this.scope.activeUsers;
+      for (i = 0, len = ref.length; i < len; i++) {
+        member = ref[i];
+        this.scope.totals[member.id] = 0;
+      }
+      this.scope.currentUser = _.find(this.scope.activeUsers, {
+        id: user != null ? user.id : void 0
+      });
+      this.scope.memberships = _.reject(this.scope.activeUsers, {
+        id: user != null ? user.id : void 0
+      });
+      return console.log('done xxxxxloading members');
+    };
+
+    CastingController.prototype.loadInitialData = function() {
+      var promise;
+      promise = this.loadRoles();
+      return promise.then((function(_this) {
+        return function() {
+          _this.fillUsersAndRoles(_this.scope.castingMembers, _this.scope.castingRoles, true);
+          return _this.loadMembers();
+        };
+      })(this));
+    };
+
     return CastingController;
 
-  })();
+  })(mixOf(taiga.Controller, taiga.PageMixin));
 
   angular.module("taigaCasting").controller("Casting", CastingController);
+
+}).call(this);
+
+
+/*
+ * Copyright (C) 2014-2015 Taiga Agile LLC <taiga@taiga.io>
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ *
+ * File: project-menu.directive.coffee
+ */
+
+(function() {
+  var CastingMenuDirective, taiga;
+
+  taiga = this.taiga;
+
+  CastingMenuDirective = function(projectService, lightboxFactory) {
+    var link;
+    link = function(scope, el, attrs, ctrl) {
+      var projectChange;
+      projectChange = function() {
+        if (projectService.project) {
+          return ctrl.show();
+        } else {
+          return ctrl.hide();
+        }
+      };
+      return scope.$watch((function() {
+        return projectService.project;
+      }), projectChange);
+    };
+    return {
+      scope: {},
+      controller: "ProjectMenu",
+      controllerAs: "vm",
+      templateUrl: "components/casting-menu/casting-menu.html",
+      link: link
+    };
+  };
+
+  CastingMenuDirective.$inject = ["tgProjectService", "tgLightboxFactory"];
+
+  angular.module("taigaComponents").directive("tgCastingMenu", CastingMenuDirective);
+
+}).call(this);
+
+(function() {
+  var CastingTeamFiltersDirective, taiga;
+
+  taiga = this.taiga;
+
+  CastingTeamFiltersDirective = function(projectService, lightboxFactory) {
+    return {
+      scope: {},
+      controller: "Casting",
+      controllerAs: "vm",
+      templateUrl: "components/casting-menu/casting-team-filter.html"
+    };
+  };
+
+  CastingTeamFiltersDirective.$inject = ["tgProjectService", "tgLightboxFactory"];
+
+  angular.module("taigaComponents").directive("tgCastingTeamFilters", CastingTeamFiltersDirective);
 
 }).call(this);
 
@@ -27873,6 +28052,23 @@
       url = urlsService.resolve("users") + "/change_is_agent";
       return http.post(url, user);
     };
+    service.change_facebookinfo = function(user) {
+      var url;
+      url = config.get("api") + 'casting/change_facebookinfo';
+      return http.post(url, user);
+    };
+    service.getCastingRoles = function(paginate) {
+      var httpOptions, params, url;
+      if (paginate == null) {
+        paginate = false;
+      }
+      url = config.get("api") + 'casting/roles_list';
+      httpOptions = {};
+      params = {};
+      return http.get(url, params, httpOptions).then(function(result) {
+        return Immutable.fromJS(result.data);
+      });
+    };
     return function() {
       return {
         "casting": service
@@ -28698,21 +28894,25 @@
       return this.rs.users.change_is_agent(user);
     };
 
+    CastingService.prototype.change_facebookinfo = function(user) {
+      return this.rs.casting.change_facebookinfo(user);
+    };
+
     CastingService.prototype.getUserByEmail = function(email) {
       return this.rs.casting.getUserByEmail(email);
     };
 
-    CastingService.prototype.createUserIfNotExistForFacebook = function(email, username) {
+    CastingService.prototype.createUserIfNotExistForFacebook = function(email, username, facebookid) {
       var binhRs, promise;
       binhRs = this.rs;
       promise = this.getUserByEmail(email);
       promise.then(function(user) {
-        console.log("<<<<<bdlog: createUserIfNotExistForFacebook: User already exist");
+        console.log("<<<<<bdlog: createUserIfNotExistForFacebook: User already exist. just need do update");
         return console.log(">>>>>");
       });
       promise = promise.then(null, function(err) {
         console.log("bdlog: user not exist .... create now");
-        return binhRs.casting.createUserForFacebook(email, username);
+        return binhRs.casting.createUserForFacebook(email, username, facebookid);
       });
       return promise;
     };
@@ -28727,6 +28927,10 @@
 
     CastingService.prototype.change_is_agent = function(user) {
       return this.rs.casting.change_is_agent(user);
+    };
+
+    CastingService.prototype.getCastingRoles = function(paginate) {
+      return this.rs.casting.getCastingRoles(paginate);
     };
 
     return CastingService;

@@ -10995,6 +10995,12 @@ tg-project-menu {
   padding: 1rem 0;
   text-transform: uppercase; }
 
+tg-casting-menu {
+  background-position: 0 -300px;
+  min-height: calc(100vh - 40px);
+  padding: 1rem 0;
+  text-transform: uppercase; }
+
 .main-nav {
   list-style: none;
   padding: 0;
@@ -14928,6 +14934,10 @@ cite {
 tg-project-menu {
   background-color: #879b89;
   background-image: url("../images/menu.png"); }
+
+tg-casting-menu {
+  background-color: #879b89;
+  background-image: url("../images/menu-casting.png"); }
 
 .main-nav svg path {
   fill: #fff; }
