@@ -24529,12 +24529,7 @@
       this.scope.wikiEnabled = true;
       user = this.auth.getUser();
       if (user) {
-        promise = this.castingService.getCastingMembers(false);
-        promise.then((function(_this) {
-          return function(data) {
-            return _this.scope.castingMembers = data.toJS();
-          };
-        })(this));
+        this.scope.castingMembers = this.currentUserService.inventory.get("all").toJS();
         promise = this.loadInitialData();
         promise.then(function() {
           return console.log('done initializing CastingController');
