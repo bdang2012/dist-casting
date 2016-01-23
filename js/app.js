@@ -28022,16 +28022,10 @@
       if (paginate == null) {
         paginate = false;
       }
-      url = urlsService.resolve("users");
+      "url = urlsService.resolve(\"users\")\nhttpOptions = {}\n\nif !paginate\n    httpOptions.headers = {\n        \"x-disable-pagination\": \"1\"\n    }\n\nparams = {\"order_by\": \"memberships__user_order\"}\n\nreturn http.get(url, params, httpOptions)\n.then (result) ->\n    return Immutable.fromJS(result.data)";
+      url = config.get("api") + 'casting/members_list';
       httpOptions = {};
-      if (!paginate) {
-        httpOptions.headers = {
-          "x-disable-pagination": "1"
-        };
-      }
-      params = {
-        "order_by": "memberships__user_order"
-      };
+      params = {};
       return http.get(url, params, httpOptions).then(function(result) {
         return Immutable.fromJS(result.data);
       });
