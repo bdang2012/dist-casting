@@ -24529,7 +24529,12 @@
       this.scope.wikiEnabled = true;
       user = this.auth.getUser();
       if (user) {
-        this.scope.castingMembers = this.currentUserService.inventory.get("all").toJS();
+        promise = this.castingService.getCastingMembers(false);
+        promise.then((function(_this) {
+          return function(data) {
+            return _this.scope.castingMembers = data.toJS();
+          };
+        })(this));
         promise = this.loadInitialData();
         promise.then(function() {
           return console.log('done initializing CastingController');
@@ -28063,6 +28068,18 @@
       url = config.get("api") + 'casting/change_facebookinfo';
       return http.post(url, user);
     };
+    service.getCastingMembers = function(paginate) {
+      var httpOptions, params, url;
+      if (paginate == null) {
+        paginate = false;
+      }
+      url = config.get("api") + 'casting/members_list';
+      httpOptions = {};
+      params = {};
+      return http.get(url, params, httpOptions).then(function(result) {
+        return Immutable.fromJS(result.data);
+      });
+    };
     service.getCastingRoles = function(paginate) {
       var httpOptions, params, url;
       if (paginate == null) {
@@ -28937,6 +28954,10 @@
 
     CastingService.prototype.getCastingRoles = function(paginate) {
       return this.rs.casting.getCastingRoles(paginate);
+    };
+
+    CastingService.prototype.getCastingMembers = function(paginate) {
+      return this.rs.casting.getCastingMembers(paginate);
     };
 
     return CastingService;
