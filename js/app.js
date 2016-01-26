@@ -24635,6 +24635,7 @@
       this.model = model;
       this.location = location1;
       this.navUrls = navUrls;
+      this.currentUserService._loadInventory();
       taiga.defineImmutableProperty(this, "projects", (function(_this) {
         return function() {
           return _this.currentUserService.projects.get("all");
@@ -29381,13 +29382,13 @@
           console.log(_this._inventory.toJS());
           return _this.inventory;
           return {
-            _loadAgents: function() {}
+            loadAgents: function() {}
           };
         };
       })(this));
     };
 
-    CurrentUserService.prototype._loadAgents = function() {
+    CurrentUserService.prototype.loadAgents = function() {
       return this.castingService.getAgents().then((function(_this) {
         return function(agents) {
           _this._agents = _this._agents.set("all", agents);
@@ -29397,7 +29398,7 @@
     };
 
     CurrentUserService.prototype._loadUserInfo = function() {
-      return Promise.all([this.loadProjects(), this._loadInventory(), this._loadAgents()]);
+      return Promise.all([this.loadProjects(), this._loadInventory(), this.loadAgents()]);
     };
 
     return CurrentUserService;
