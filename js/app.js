@@ -327,6 +327,9 @@
       controller: "Casting",
       controllerAs: "vm"
     });
+    $routeProvider.when("/casting/user-profile/:userid", {
+      templateUrl: "casting/listing/casting_user_profile.html"
+    });
     $routeProvider.otherwise({
       redirectTo: "/not-found"
     });
@@ -996,10 +999,6 @@
       if (forCasting == null) {
         forCasting = false;
       }
-      console.log("<<<<bdlog: PageMixin fillUsersadnRoles");
-      console.log(users);
-      console.log(">>>>>>>Total is");
-      console.log(users.length);
       activeUsers = _.filter(users, (function(_this) {
         return function(user) {
           return user.is_active;
@@ -23902,7 +23901,7 @@
  */
 
 (function() {
-  var TaigaAvatarModelDirective, UserAvatarDirective, UserProfileDirective, UserSettingsController, debounce, mixOf, module, sizeFormat, taiga,
+  var CastingUserProfileDirective, CastingUserSettingsController, TaigaAvatarModelDirective, UserAvatarDirective, UserProfileDirective, UserSettingsController, debounce, mixOf, module, sizeFormat, taiga,
     extend = function(child, parent) { for (var key in parent) { if (hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; },
     hasProp = {}.hasOwnProperty;
 
@@ -23983,6 +23982,90 @@
 
   module.controller("UserSettingsController", UserSettingsController);
 
+  CastingUserSettingsController = (function(superClass) {
+    extend(CastingUserSettingsController, superClass);
+
+    CastingUserSettingsController.$inject = ["$scope", "$rootScope", "$tgConfig", "$tgRepo", "$tgConfirm", "$tgResources", "$routeParams", "$q", "$tgLocation", "$tgNavUrls", "$tgAuth", "$translate", "$routeParams", "tgResources", "$tgModel"];
+
+    function CastingUserSettingsController(scope, rootscope, config, repo, confirm, rs, params, q, location, navUrls, auth, translate, routeParams, tgRs, model1) {
+      var binhModel, binhScope, maxFileSize, promise, text, userid;
+      this.scope = scope;
+      this.rootscope = rootscope;
+      this.config = config;
+      this.repo = repo;
+      this.confirm = confirm;
+      this.rs = rs;
+      this.params = params;
+      this.q = q;
+      this.location = location;
+      this.navUrls = navUrls;
+      this.auth = auth;
+      this.translate = translate;
+      this.routeParams = routeParams;
+      this.tgRs = tgRs;
+      this.model = model1;
+      this.scope.sectionName = "USER_SETTINGS.MENU.SECTION_TITLE";
+      this.scope.project = {};
+      if (this.routeParams.userid) {
+        userid = this.routeParams.userid;
+        binhScope = this.scope;
+        binhModel = this.model;
+        this.tgRs.casting.getUserByUserId(userid).then(function(response) {
+          var userData;
+          userData = response.toJS();
+          return binhScope.user = binhModel.make_model("users", userData);
+        });
+      } else {
+        this.scope.user = this.auth.getUser();
+      }
+      console.log("bdlog:<<<<<<userid is:");
+      console.log(this.scope.user);
+      console.log(">>>>>>");
+      if (!this.scope.user) {
+        this.location.path(this.navUrls.resolve("permission-denied"));
+        this.location.replace();
+      }
+      this.scope.lang = this.getLan();
+      this.scope.theme = this.getTheme();
+      maxFileSize = this.config.get("maxUploadFileSize", null);
+      if (maxFileSize) {
+        text = this.translate.instant("USER_SETTINGS.AVATAR_MAX_SIZE", {
+          "maxFileSize": sizeFormat(maxFileSize)
+        });
+        this.scope.maxFileSizeMsg = text;
+      }
+      promise = this.loadInitialData();
+      promise.then(null, this.onInitialDataError.bind(this));
+    }
+
+    CastingUserSettingsController.prototype.loadInitialData = function() {
+      this.scope.availableThemes = this.config.get("themes", []);
+      return this.rs.locales.list().then((function(_this) {
+        return function(locales) {
+          _this.scope.locales = locales;
+          return locales;
+        };
+      })(this));
+    };
+
+    CastingUserSettingsController.prototype.openDeleteLightbox = function() {
+      return this.rootscope.$broadcast("deletelightbox:new", this.scope.user);
+    };
+
+    CastingUserSettingsController.prototype.getLan = function() {
+      return this.scope.user.lang || this.translate.preferredLanguage();
+    };
+
+    CastingUserSettingsController.prototype.getTheme = function() {
+      return this.scope.user.theme || this.config.get("defaultTheme") || "taiga";
+    };
+
+    return CastingUserSettingsController;
+
+  })(mixOf(taiga.Controller, taiga.PageMixin));
+
+  module.controller("CastingUserSettingsController", CastingUserSettingsController);
+
   UserProfileDirective = function($confirm, $auth, $repo, $translate) {
     var link;
     link = function($scope, $el, $attrs) {
@@ -24026,6 +24109,49 @@
   };
 
   module.directive("tgUserProfile", ["$tgConfirm", "$tgAuth", "$tgRepo", "$translate", UserProfileDirective]);
+
+  CastingUserProfileDirective = function($confirm, $auth, $repo, $translate) {
+    var link;
+    link = function($scope, $el, $attrs) {
+      var submit;
+      submit = debounce(2000, (function(_this) {
+        return function(event) {
+          var changeEmail, form, onError, onSuccess;
+          event.preventDefault();
+          form = $el.find("form").checksley();
+          if (!form.validate()) {
+            return;
+          }
+          changeEmail = false;
+          $scope.user.lang = $scope.lang;
+          $scope.user.theme = $scope.theme;
+          onSuccess = function(data) {
+            var text;
+            if (changeEmail) {
+              text = $translate.instant("USER_PROFILE.CHANGE_EMAIL_SUCCESS");
+              return $confirm.success(text);
+            } else {
+              return $confirm.notify('success');
+            }
+          };
+          onError = function(data) {
+            form.setErrors(data);
+            return $confirm.notify('error', data._error_message);
+          };
+          return $repo.save($scope.user).then(onSuccess, onError);
+        };
+      })(this));
+      $el.on("submit", "form", submit);
+      return $scope.$on("$destroy", function() {
+        return $el.off();
+      });
+    };
+    return {
+      link: link
+    };
+  };
+
+  module.directive("tgCastingUserProfile", ["$tgConfirm", "$tgAuth", "$tgRepo", "$translate", CastingUserProfileDirective]);
 
   UserAvatarDirective = function($auth, $model, $rs, $confirm) {
     var link;
@@ -24647,6 +24773,7 @@
       this.scope.memberships = _.reject(this.scope.activeUsers, {
         id: user != null ? user.id : void 0
       });
+      this.scope.memberships_agent = this.agents.toJS();
       return console.log('done xxxxxloading members');
     };
 
@@ -24741,6 +24868,62 @@
   CastingTeamFiltersDirective.$inject = ["tgProjectService", "tgLightboxFactory"];
 
   angular.module("taigaComponents").directive("tgCastingTeamFilters", CastingTeamFiltersDirective);
+
+}).call(this);
+
+(function() {
+  var CastingTeamMembersAgentDirective, taiga;
+
+  taiga = this.taiga;
+
+  CastingTeamMembersAgentDirective = function(projectService, lightboxFactory) {
+    return {
+      scope: {
+        memberships: "=",
+        filtersQ: "=filtersq",
+        filtersRole: "=filtersrole",
+        stats: "=",
+        issuesEnabled: "=issuesenabled",
+        tasksEnabled: "=tasksenabled",
+        wikiEnabled: "=wikienabled"
+      },
+      controller: "Casting",
+      controllerAs: "vm",
+      templateUrl: "components/casting-menu/casting-team-members-agent.html"
+    };
+  };
+
+  CastingTeamMembersAgentDirective.$inject = ["tgProjectService", "tgLightboxFactory"];
+
+  angular.module("taigaComponents").directive("tgCastingTeamMembersAgent", CastingTeamMembersAgentDirective);
+
+}).call(this);
+
+(function() {
+  var CastingTeamMembersDirective, taiga;
+
+  taiga = this.taiga;
+
+  CastingTeamMembersDirective = function(projectService, lightboxFactory) {
+    return {
+      scope: {
+        memberships: "=",
+        filtersQ: "=filtersq",
+        filtersRole: "=filtersrole",
+        stats: "=",
+        issuesEnabled: "=issuesenabled",
+        tasksEnabled: "=tasksenabled",
+        wikiEnabled: "=wikienabled"
+      },
+      controller: "Casting",
+      controllerAs: "vm",
+      templateUrl: "components/casting-menu/casting-team-members.html"
+    };
+  };
+
+  CastingTeamMembersDirective.$inject = ["tgProjectService", "tgLightboxFactory"];
+
+  angular.module("taigaComponents").directive("tgCastingTeamMembers", CastingTeamMembersDirective);
 
 }).call(this);
 
@@ -28001,6 +28184,17 @@
         return Immutable.fromJS(result.data);
       });
     };
+    service.getUserByUserId = function(userid) {
+      var httpOptions, params, url;
+      url = config.get("api") + 'casting/by_userid';
+      httpOptions = {};
+      params = {
+        userid: userid
+      };
+      return http.get(url, params, httpOptions).then(function(result) {
+        return Immutable.fromJS(result.data);
+      });
+    };
     service.createUserForFacebook = function(email, username) {
       var httpOptions, params, url, username_nospace;
       url = config.get("api") + 'auth/register';
@@ -28912,6 +29106,10 @@
 
     CastingService.prototype.getUserByEmail = function(email) {
       return this.rs.casting.getUserByEmail(email);
+    };
+
+    CastingService.prototype.getUserByUserId = function(userid) {
+      return this.rs.casting.getUserByUserId(userid);
     };
 
     CastingService.prototype.createUserIfNotExistForFacebook = function(email, username, facebookid) {
