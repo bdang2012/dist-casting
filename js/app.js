@@ -24626,7 +24626,7 @@
     CastingController.$inject = ["$scope", "$rootScope", "tgCurrentUserService", "$tgAuth", "tgCastingService", "$tgModel", "$tgLocation", "$tgNavUrls"];
 
     function CastingController(scope, rootscope, currentUserService, auth, castingService, model, location1, navUrls) {
-      var promise, user;
+      var b_castingService, b_scope;
       this.scope = scope;
       this.rootscope = rootscope;
       this.currentUserService = currentUserService;
@@ -24635,33 +24635,27 @@
       this.model = model;
       this.location = location1;
       this.navUrls = navUrls;
-      this.currentUserService._loadInventory();
-      taiga.defineImmutableProperty(this, "projects", (function(_this) {
-        return function() {
-          return _this.currentUserService.projects.get("all");
-        };
-      })(this));
-      taiga.defineImmutableProperty(this, "inventory", (function(_this) {
-        return function() {
-          return _this.currentUserService.inventory.get("all");
-        };
-      })(this));
+      this.scope.tasksEnabled = true;
+      this.scope.issuesEnabled = true;
+      this.scope.wikiEnabled = true;
       taiga.defineImmutableProperty(this, "agents", (function(_this) {
         return function() {
           return _this.currentUserService.agents.get("all");
         };
       })(this));
-      this.scope.tasksEnabled = true;
-      this.scope.issuesEnabled = true;
-      this.scope.wikiEnabled = true;
-      user = this.auth.getUser();
-      if (user) {
-        this.scope.castingMembers = this.currentUserService.inventory.get("all").toJS();
-        promise = this.loadInitialData();
-        promise.then(function() {
-          return console.log('done initializing CastingController');
-        });
-      }
+      b_scope = this.scope;
+      b_castingService = this.castingService;
+      this.castingService.getCastingRoles(false).then(function(response) {
+        return b_scope.castingRoles = response.toJS();
+      }).then(function(response) {
+        return b_castingService.getAgents();
+      }).then(function(response) {
+        return b_scope.memberships_agent = response.toJS();
+      }).then(function(response) {
+        return b_castingService.getCastingMembers();
+      }).then(function(response) {
+        return b_scope.castingMembers = response.toJS();
+      });
     }
 
     CastingController.prototype.openActivateAgentLightbox = function(user) {
@@ -24759,22 +24753,9 @@
     };
 
     CastingController.prototype.loadMembers = function() {
-      var i, len, member, ref, user;
+      var user;
       console.log('xxxxxloading members');
       user = this.auth.getUser();
-      this.scope.totals = {};
-      ref = this.scope.activeUsers;
-      for (i = 0, len = ref.length; i < len; i++) {
-        member = ref[i];
-        this.scope.totals[member.id] = 0;
-      }
-      this.scope.currentUser = _.find(this.scope.activeUsers, {
-        id: user != null ? user.id : void 0
-      });
-      this.scope.memberships = _.reject(this.scope.activeUsers, {
-        id: user != null ? user.id : void 0
-      });
-      this.scope.memberships_agent = this.agents.toJS();
       return console.log('done xxxxxloading members');
     };
 
