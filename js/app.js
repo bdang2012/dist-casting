@@ -23985,10 +23985,10 @@
   CastingUserSettingsController = (function(superClass) {
     extend(CastingUserSettingsController, superClass);
 
-    CastingUserSettingsController.$inject = ["$scope", "$rootScope", "$tgConfig", "$tgRepo", "$tgConfirm", "$tgResources", "$routeParams", "$q", "$tgLocation", "$tgNavUrls", "$tgAuth", "$translate", "$routeParams", "tgResources", "$tgModel"];
+    CastingUserSettingsController.$inject = ["$scope", "$rootScope", "$tgConfig", "$tgRepo", "$tgConfirm", "$tgResources", "$routeParams", "$q", "$tgLocation", "$tgNavUrls", "$tgAuth", "$translate", "$routeParams", "tgResources", "$tgModel", "tgCastingService"];
 
-    function CastingUserSettingsController(scope, rootscope, config, repo, confirm, rs, params, q, location, navUrls, auth, translate, routeParams, tgRs, model1) {
-      var binhModel, binhScope, maxFileSize, promise, text, userid;
+    function CastingUserSettingsController(scope, rootscope, config, repo, confirm, rs, params, q, location, navUrls, auth, translate, routeParams, tgRs, model1, castingService) {
+      var b_scope, binhModel, binhScope, maxFileSize, promise, text, userid;
       this.scope = scope;
       this.rootscope = rootscope;
       this.config = config;
@@ -24004,6 +24004,7 @@
       this.routeParams = routeParams;
       this.tgRs = tgRs;
       this.model = model1;
+      this.castingService = castingService;
       this.scope.sectionName = "USER_SETTINGS.MENU.SECTION_TITLE";
       this.scope.project = {};
       if (this.routeParams.userid) {
@@ -24018,15 +24019,16 @@
       } else {
         this.scope.user = this.auth.getUser();
       }
-      console.log("bdlog:<<<<<<userid is:");
-      console.log(this.scope.user);
-      console.log(">>>>>>");
       if (!this.scope.user) {
         this.location.path(this.navUrls.resolve("permission-denied"));
         this.location.replace();
       }
       this.scope.lang = this.getLan();
       this.scope.theme = this.getTheme();
+      b_scope = this.scope;
+      this.getAgents().then(function(response) {
+        return b_scope.agents = response;
+      });
       maxFileSize = this.config.get("maxUploadFileSize", null);
       if (maxFileSize) {
         text = this.translate.instant("USER_SETTINGS.AVATAR_MAX_SIZE", {
@@ -24058,6 +24060,12 @@
 
     CastingUserSettingsController.prototype.getTheme = function() {
       return this.scope.user.theme || this.config.get("defaultTheme") || "taiga";
+    };
+
+    CastingUserSettingsController.prototype.getAgents = function() {
+      return this.castingService.getAgents().then(function(response) {
+        return response.toJS();
+      });
     };
 
     return CastingUserSettingsController;
@@ -24638,6 +24646,7 @@
       this.scope.tasksEnabled = true;
       this.scope.issuesEnabled = true;
       this.scope.wikiEnabled = true;
+      this.scope.binhfnGetObjectFromJSById = this.binhfnGetObjectFromJSById;
       taiga.defineImmutableProperty(this, "agents", (function(_this) {
         return function() {
           return _this.currentUserService.agents.get("all");
@@ -24654,9 +24663,23 @@
       }).then(function(response) {
         return b_castingService.getCastingMembers();
       }).then(function(response) {
-        return b_scope.castingMembers = response.toJS();
+        b_scope.castingMembers = response.toJS();
+        console.log("---->");
+        return console.log(b_scope.castingMembers);
       });
     }
+
+    CastingController.prototype.binhfnGetObjectFromJSById = function(arr, value) {
+      var result;
+      result = arr.filter(function(o) {
+        return o.id === value;
+      });
+      if (result) {
+        return result[0];
+      } else {
+        return null;
+      }
+    };
 
     CastingController.prototype.openActivateAgentLightbox = function(user) {
       var userChanged;
@@ -24850,6 +24873,30 @@
   CastingTeamFiltersDirective.$inject = ["tgProjectService", "tgLightboxFactory"];
 
   angular.module("taigaComponents").directive("tgCastingTeamFilters", CastingTeamFiltersDirective);
+
+}).call(this);
+
+(function() {
+  var CastingTeamMemberStatsDirective, taiga;
+
+  taiga = this.taiga;
+
+  CastingTeamMemberStatsDirective = function() {
+    return {
+      scope: {
+        stats: "=",
+        userId: "=user",
+        issuesEnabled: "=issuesenabled",
+        tasksEnabled: "=tasksenabled",
+        wikiEnabled: "=wikienabled"
+      },
+      controller: "Casting",
+      controllerAs: "vm",
+      templateUrl: "components/casting-menu/casting-team-member-stats.html"
+    };
+  };
+
+  angular.module("taigaComponents").directive("tgCastingTeamMemberStats", CastingTeamMemberStatsDirective);
 
 }).call(this);
 
