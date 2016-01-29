@@ -24634,7 +24634,7 @@
     CastingController.$inject = ["$scope", "$rootScope", "tgCurrentUserService", "$tgAuth", "tgCastingService", "$tgModel", "$tgLocation", "$tgNavUrls"];
 
     function CastingController(scope, rootscope, currentUserService, auth, castingService, model, location1, navUrls) {
-      var b_castingService, b_scope;
+      var b_castingService, b_scope, currentUser;
       this.scope = scope;
       this.rootscope = rootscope;
       this.currentUserService = currentUserService;
@@ -24652,6 +24652,9 @@
           return _this.currentUserService.agents.get("all");
         };
       })(this));
+      currentUser = this.currentUserService.getUser().toJS();
+      console.log("current user is");
+      console.log(currentUser);
       b_scope = this.scope;
       b_castingService = this.castingService;
       this.castingService.getCastingRoles(false).then(function(response) {
@@ -24661,11 +24664,13 @@
       }).then(function(response) {
         return b_scope.memberships_agent = response.toJS();
       }).then(function(response) {
-        return b_castingService.getCastingMembers();
+        if (currentUser.is_agent) {
+          return b_castingService.getMembersListForAgent(currentUser.id);
+        } else {
+          return b_castingService.getCastingMembers();
+        }
       }).then(function(response) {
-        b_scope.castingMembers = response.toJS();
-        console.log("---->");
-        return console.log(b_scope.castingMembers);
+        return b_scope.castingMembers = response.toJS();
       });
     }
 
@@ -28245,10 +28250,23 @@
       if (paginate == null) {
         paginate = false;
       }
-      "url = urlsService.resolve(\"users\")\nhttpOptions = {}\n\nif !paginate\n    httpOptions.headers = {\n        \"x-disable-pagination\": \"1\"\n    }\n\nparams = {\"order_by\": \"memberships__user_order\"}\n\nreturn http.get(url, params, httpOptions)\n.then (result) ->\n    return Immutable.fromJS(result.data)";
       url = config.get("api") + 'casting/members_list';
       httpOptions = {};
       params = {};
+      return http.get(url, params, httpOptions).then(function(result) {
+        return Immutable.fromJS(result.data);
+      });
+    };
+    service.getMembersListForAgent = function(userid, paginate) {
+      var httpOptions, params, url;
+      if (paginate == null) {
+        paginate = false;
+      }
+      url = config.get("api") + 'casting/members_list_for_agent';
+      httpOptions = {};
+      params = {
+        userid: userid
+      };
       return http.get(url, params, httpOptions).then(function(result) {
         return Immutable.fromJS(result.data);
       });
@@ -29174,6 +29192,10 @@
 
     CastingService.prototype.getCastingMembers = function(paginate) {
       return this.rs.casting.getCastingMembers(paginate);
+    };
+
+    CastingService.prototype.getMembersListForAgent = function(userid, paginate) {
+      return this.rs.casting.getMembersListForAgent(userid, paginate);
     };
 
     return CastingService;
