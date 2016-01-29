@@ -24652,9 +24652,11 @@
           return _this.currentUserService.agents.get("all");
         };
       })(this));
-      currentUser = this.currentUserService.getUser().toJS();
-      console.log("current user is");
-      console.log(currentUser);
+      if (this.auth.getUser()) {
+        currentUser = this.auth.getUser().toJS();
+        console.log("current user is");
+        console.log(currentUser);
+      }
       b_scope = this.scope;
       b_castingService = this.castingService;
       this.castingService.getCastingRoles(false).then(function(response) {
@@ -24664,7 +24666,7 @@
       }).then(function(response) {
         return b_scope.memberships_agent = response.toJS();
       }).then(function(response) {
-        if (currentUser.is_agent) {
+        if (currentUser && currentUser.is_agent) {
           return b_castingService.getMembersListForAgent(currentUser.id);
         } else {
           return b_castingService.getCastingMembers();
