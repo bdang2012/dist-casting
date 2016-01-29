@@ -24653,7 +24653,7 @@
         };
       })(this));
       if (this.auth.getUser()) {
-        currentUser = this.auth.getUser().toJS();
+        currentUser = this.auth.getUser();
         console.log("current user is");
         console.log(currentUser);
       }
